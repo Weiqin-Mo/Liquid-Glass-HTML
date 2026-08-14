@@ -1,6 +1,6 @@
 # 液态玻璃组件库（Liquid Glass UI Kit）
 
-基于 **圆角矩形 SDF 边缘折射** 算法的液态玻璃（Liquid Glass）交互组件库，纯 HTML / CSS / JS 单文件实现，无任何第三方依赖。视觉效果对标 iOS 26 液态玻璃：只让玻璃**边缘发生弯曲**，内部几乎不变形，符合光学折射规律。
+基于 **圆角矩形 SDF 边缘折射** 算法的液态玻璃（Liquid Glass）交互组件库，纯 HTML / CSS / JS 单文件实现，无任何第三方依赖。视觉效果接近 iOS 26 液态玻璃：只让玻璃**边缘发生弯曲**，内部几乎不变形，符合光学折射规律。
 
 ## 特性
 
@@ -16,7 +16,7 @@
 
 ```bash
 # 直接浏览器打开主文件即可（无需构建、无需服务器）
-start 液态玻璃-完整控件库液化折射版优化.html
+start Liquid_Glass index.html
 ```
 
 > 页面背景引用同目录 `bg.png`（缺失时自动回退为深色渐变）。
@@ -58,13 +58,12 @@ start 液态玻璃-完整控件库液化折射版优化.html
 3. **backdrop-filter 链**：`blur(var(--blur)) saturate(180%) brightness(var(--bright)) url(#lg-<id>)`
 4. **动态更新**：`ResizeObserver` + `visualViewport` 缩放监听 + 防抖 `refreshAllFilters()`
 
-详见 [liquid_glass_style.md](./liquid_glass_style.md) 与 [着色器实现方案.txt](./着色器实现方案.txt)。
-
 ## 浏览器兼容性
 
 - **Chrome / Edge**：完整效果（注意 backdrop-filter 中仅支持单个 `url()`）
 - **Safari**：对 `backdrop-filter` + `feImage` dataURL 支持可能异常，需降级为纯 `blur + saturate` 玻璃
-- 保留 `prefers-reduced-motion` 降级入口
+- 保留 `prefers-reduced-motion` 降级入口(未测试)
+- **Firefox**:大部分效果不支持，仅磨砂生效
 
 ## 鸣谢
 
