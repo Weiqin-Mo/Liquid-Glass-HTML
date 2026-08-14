@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>liquid glass 组件库示例</title>
+    <style>
+        /* ========== 基础 ========== */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        :root {
+            --radius: 24px;
+            --blur: 16px;
+            --bright: 1.1;
+            --refraction-strength: 1.2;
+            --border: rgba(255, 255, 255, 0.16);
+            --edge-width: 1px;
+            --thumb-scale: 1.3;
+            --shadow:
+                inset 0 0 0 var(--edge-width) rgba(255, 255, 255, 0.16),
+                inset 0 1px 0 rgba(255, 255, 255, 0.28),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+                0 6px 20px rgba(0, 0, 0, 0.22),
+                0 18px 40px rgba(0, 0, 0, 0.16);
+            --glass-bg: rgba(255, 255, 255, 0.06);
+            --accent: #4facfe;
+            --success: #42e6a4;
+            --danger: #ff6b6b;
+        }
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+            font-family: 'SF Pro Display', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            color: rgba(255, 255, 255, 0.92);
+            -webkit-font-smoothing: antialiased;
+            background: #11152b;
+        }
+
+        /* ========== 背景 ========== */
+        .bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background:
+                url('bg.png') center / cover no-repeat,
+                radial-gradient(circle at 15% 20%, rgba(110, 130, 255, 0.35) 0%, transparent 45%),
+                radial-gradient(circle at 75% 70%, rgba(255, 110, 180, 0.2) 0%, transparent 35%),
+                linear-gradient(145deg, #121528, #1b2038);
+        }
+        .bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(11, 14, 26, 0.25);
+        }
+
+        /* ========== 通用液态玻璃容器 ========== */
+        .lg {
+            position: relative;
+            backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            background: var(--glass-bg);
+            border: none;
+            box-shadow: var(--shadow);
+            border-radius: var(--radius);
+            transition: background 0.3s, border-radius 0.3s, box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .lg:hover {
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow:
+                inset 0 0 0 var(--edge-width) rgba(255, 255, 255, 0.22),
+                inset 0 1px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.14),
+                0 8px 24px rgba(0, 0, 0, 0.26),
+                0 20px 44px rgba(0, 0, 0, 0.18);
+        }
+        .lg-mouse {
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            background: radial-gradient(circle 70px at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.12), transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1;
+        }
+        .lg:hover .lg-mouse {
+            opacity: 1;
+        }
+
+        /* ========== 图标通用 ========== */
+        .icon {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex-shrink: 0;
+        }
+
+        /* ========== 布局 ========== */
+        .page {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-top: 80px;  /* 给固定顶栏留出空间 */
+        }
+        .body {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+        }
+
+        /* ========== 顶栏（固定） ========== */
+        .topbar {
+            position: fixed;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(1120px, calc(100% - 40px));
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 20px;
+            border-radius: 999px;  /* 胶囊形，悬浮在顶部 */
+        }
+        /* 顶栏与浮动面板保留完整液态玻璃折射效果。
+           视口外（浏览器网址栏/标签栏）的内容不会参与折射：
+           buildDisplacementMap 生成位移贴图时会把取样位置钳制在网页范围内 */
+
+        /* 玻璃元素安全容器：容器比屏幕大 40px（四周各 20px），玻璃元素相对往里缩 20px，
+           overflow: hidden 裁掉多出的 40px，阻止位移像素溢出到浏览器 UI */
+        .glass-guard {
+            position: fixed;
+            left: -20px;
+            top: -20px;
+            width: calc(100vw + 40px);
+            height: calc(100vh + 40px);
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .glass-guard--top { z-index: 1000; }
+        .glass-guard--panel { z-index: 999; }
+        /* pointer-events 是继承属性：容器的 none 会传入玻璃元素，导致整窗不可交互，
+           显式恢复玻璃元素及其子控件的可交互性 */
+        .glass-guard > .topbar,
+        .glass-guard > .floating-panel {
+            pointer-events: auto;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 0.5px;
+        }
+        .brand-logo {
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            display: grid;
+            place-items: center;
+            box-shadow: 0 4px 12px rgba(0, 160, 255, 0.3);
+        }
+        .brand-logo .icon { width: 16px; height: 16px; stroke: #fff; }
+        .search-box {
+            flex: 1;
+            max-width: 380px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: border 0.3s, box-shadow 0.3s;
+        }
+        .search-box:focus-within {
+            border-color: rgba(79, 172, 254, 0.5);
+            box-shadow: 0 0 0 4px rgba(79, 172, 254, 0.12);
+        }
+        .search-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-size: 13px;
+        }
+        .search-box .icon { color: rgba(255, 255, 255, 0.5); }
+        .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .icon-btn {
+            position: relative;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            border: none;
+            background: rgba(196, 201, 210, 0.8);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.55),
+                inset 0 0 10px rgba(255, 255, 255, 0.2),
+                0 2px 10px rgba(0, 0, 0, 0.15);
+            transition: all 0.25s;
+        }
+        .icon-btn:hover {
+            background: rgba(205, 210, 218, 0.88);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.65),
+                inset 0 0 14px rgba(255, 255, 255, 0.28),
+                0 4px 16px rgba(0, 0, 0, 0.2);
+            transform: scale(1.05);
+        }
+        .icon-btn .dot {
+            position: absolute;
+            top: 7px;
+            right: 8px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--danger);
+            box-shadow: 0 0 8px var(--danger);
+        }
+        .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+            display: grid;
+            place-items: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: #333;
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+        }
+
+        /* ========== 侧边栏 ========== */
+        .sidebar {
+            width: 220px;
+            padding: 14px 0;
+            flex-shrink: 0;
+            overflow: hidden;
+            border-radius: var(--radius);
+        }
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: rgba(255, 255, 255, 0.4);
+            padding: 8px 24px 4px;
+        }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 24px;
+            cursor: pointer;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            transition: all 0.25s;
+            border-left: 2px solid transparent;
+        }
+        .menu-item:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .menu-item.active {
+            color: #fff;
+            background: linear-gradient(90deg, rgba(79, 172, 254, 0.18), transparent);
+            border-left-color: var(--accent);
+        }
+        .menu-item .icon { width: 17px; height: 17px; }
+        .menu-item .badge {
+            margin-left: auto;
+            background: rgba(255, 255, 255, 0.12);
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+        }
+
+        /* ========== 主内容 ========== */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            min-width: 0;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            border-radius: 99px;
+            background: linear-gradient(180deg, var(--accent), var(--success));
+        }
+
+        /* ========== 控制组 ========== */
+        .control-group {
+            padding: 22px;
+            border-radius: var(--radius);
+        }
+        .group-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 14px;
+            letter-spacing: 0.3px;
+        }
+        .group-label .sub {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.35);
+            font-weight: 400;
+            margin-left: 8px;
+        }
+
+        /* ========== 按钮 ========== */
+        /* 默认按钮：纯色淡灰色，80% 不透明度，白色高光 */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 24px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            color: #fff;
+            background: rgba(196, 201, 210, 0.8);
+            backdrop-filter: blur(10px) saturate(160%) brightness(1.05);
+            -webkit-backdrop-filter: blur(10px) saturate(160%) brightness(1.05);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        background 0.25s, box-shadow 0.25s, backdrop-filter 0.25s;
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.55),
+                inset 0 0 10px rgba(255, 255, 255, 0.2),
+                0 2px 10px rgba(0, 0, 0, 0.15);
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            background: rgba(205, 210, 218, 0.88);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.65),
+                inset 0 0 14px rgba(255, 255, 255, 0.28),
+                0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+        .btn:active,
+        .btn.glass-active {
+            /* 动画时液态玻璃 */
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px) saturate(180%) brightness(1.1) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.1) var(--lg-filter, none);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25),
+                        inset 0 0 0 var(--edge-width) rgba(255,255,255,0.25),
+                        inset 0 1px 0 rgba(255,255,255,0.4);
+            transform: scale(1.06);
+        }
+        /* 主要按钮：纯色蓝色，80% 不透明度，淡蓝色高光 */
+        .btn--primary {
+            background: rgba(79, 172, 254, 0.8);
+            border: none;
+            box-shadow:
+                inset 0 1px 0 rgba(190, 227, 255, 0.65),
+                inset 0 0 12px rgba(160, 215, 255, 0.3),
+                0 4px 16px rgba(79, 172, 254, 0.35);
+        }
+        .btn--primary:hover {
+            background: rgba(96, 183, 255, 0.86);
+            box-shadow:
+                inset 0 1px 0 rgba(210, 238, 255, 0.75),
+                inset 0 0 16px rgba(170, 220, 255, 0.42),
+                0 6px 20px rgba(79, 172, 254, 0.42);
+        }
+        .btn--primary:active,
+        .btn--primary.glass-active {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(16px) saturate(180%) brightness(1.1) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.1) var(--lg-filter, none);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25),
+                        inset 0 0 0 var(--edge-width) rgba(255,255,255,0.4);
+        }
+        /* 危险按钮：纯色红色，80% 不透明度，淡红色高光 */
+        .btn--danger {
+            background: rgba(255, 107, 107, 0.8);
+            border: none;
+            box-shadow:
+                inset 0 1px 0 rgba(255, 220, 220, 0.6),
+                inset 0 0 12px rgba(255, 200, 200, 0.28),
+                0 4px 16px rgba(255, 107, 107, 0.35);
+        }
+        .btn--danger:hover {
+            background: rgba(255, 125, 125, 0.86);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 235, 235, 0.7),
+                inset 0 0 16px rgba(255, 215, 215, 0.4),
+                0 6px 20px rgba(255, 107, 107, 0.42);
+        }
+        /* 幽灵按钮：近透明底，白色高光 */
+        .btn--ghost {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.25),
+                inset 0 0 8px rgba(255, 255, 255, 0.08);
+        }
+        .btn--disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        /* ========== 所有交互按钮的液态玻璃激活态 ========== */
+        .glass-active {
+            backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+        }
+        .seg-item.glass-active,
+        .icon-btn.glass-active,
+        .menu-item.glass-active,
+        .avatar.glass-active {
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2),
+                        inset 0 0 0 var(--edge-width) rgba(255, 255, 255, 0.28);
+        }
+
+        /* ========== 分段选择器 ========== */
+        .segmented {
+            position: relative;
+            display: flex;
+            padding: 5px;
+            border-radius: 999px;
+            gap: 5px;
+            background: rgba(255, 255, 255, 0.10);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            touch-action: none;
+            transition: background 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+        }
+        .seg-indicator {
+            position: absolute;
+            top: 5px;
+            bottom: 5px;
+            left: 5px;
+            border-radius: 999px;
+            background: #fff;   /* 静止状态：白色纯色 */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+            z-index: 0;
+            transition: left 0.4s cubic-bezier(0.2, 0.6, 0.4, 1),
+                        width 0.4s cubic-bezier(0.2, 0.6, 0.4, 1),
+                        transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        background 0.3s, border-color 0.3s,
+                        backdrop-filter 0.3s, box-shadow 0.3s;
+            pointer-events: none;
+        }
+        .segmented.dragging .seg-indicator {
+            /* 拖动时只跟手 left/width，不做插值；transform（果冻放大 + --dy 上下偏移）过渡保留 */
+            transition: left 0s, width 0s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .seg-indicator.jelly {
+            /* 果冻放大（倍数绑定“滑块放大” --thumb-scale），默认保持居中不上移；
+               仅拖动时通过 --dy（跟随鼠标 Y）允许小幅上下偏移，动画完成后移除该类，
+               transform 归零、底色恢复白色方块 */
+            transform: translateY(var(--dy, 0px)) scale(var(--thumb-scale));
+            background: rgba(255, 255, 255, 0.35);
+            backdrop-filter: blur(12px) saturate(200%) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(12px) saturate(200%) var(--lg-filter, none);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.5),
+                        0 0 40px rgba(255, 110, 180, 0.3),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+        .segmented.liquid-active {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.28);
+            backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            box-shadow: var(--shadow);
+        }
+        .segmented.liquid-active .seg-indicator {
+            background: rgba(255, 255, 255, 0.35);
+            backdrop-filter: blur(12px) saturate(200%) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(12px) saturate(200%) var(--lg-filter, none);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.5),
+                        0 0 40px rgba(255, 110, 180, 0.3),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+        .seg-item {
+            position: relative;
+            z-index: 1;
+            flex: 1 1 0;
+            padding: 7px 0;
+            text-align: center;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.5);
+            background: transparent;
+            border: 1px solid transparent;
+            transition: color 0.2s;
+            user-select: none;
+        }
+        .seg-item:hover {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .seg-item.active {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* ========== 开关（优化形状和动画） ========== */
+        .switch-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 18px;
+            border-radius: var(--radius);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            gap: 12px;
+        }
+        .switch-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .si-icon {
+            width: 20px;
+            height: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            display: grid;
+            place-items: center;
+        }
+        .si-text { font-size: 14px; font-weight: 500; }
+        .si-sub { font-size: 11px; color: rgba(255, 255, 255, 0.4); }
+        .switch {
+            width: 56px;                     /* 缩短背景宽度 */
+            height: 26px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px) saturate(160%);
+            -webkit-backdrop-filter: blur(8px) saturate(160%);
+            position: relative;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: background 0.3s, backdrop-filter 0.3s;
+            flex-shrink: 0;
+            overflow: visible;
+        }
+        .switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 28px;                    /* 滑块宽度 = (56 - 6) / 2 ≈ 25?? 但用户要求一半，我们设为 28（实际可用宽度 56-6=50，一半是25，但为了美观设为28） */
+            height: 20px;
+            border-radius: 999px;
+            background: #fff;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        background 0.3s, backdrop-filter 0.3s, box-shadow 0.3s, border-color 0.3s;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        .switch.active {
+            background: linear-gradient(135deg, var(--success), #34c78e);
+        }
+        .switch.active::after {
+            transform: translateX(22px);   /* 56 - 28 - 6 = 22px 移动距离 */
+        }
+        @keyframes switch-on {
+            0%   { transform: translateX(0) scale(1); }
+            50%  { transform: translateX(11px) scale(1.15); }
+            100% { transform: translateX(22px) scale(1.2); }  /* 膨胀超出背景 */
+        }
+        @keyframes switch-off {
+            0%   { transform: translateX(22px) scale(1.2); }
+            50%  { transform: translateX(11px) scale(1.15); }
+            100% { transform: translateX(0) scale(1); }
+        }
+        .switch.animating-on::after  { animation: switch-on 0.3s ease forwards; }
+        .switch.animating-off::after { animation: switch-off 0.3s ease forwards; }
+        .switch.animating-on::after,
+        .switch.animating-off::after {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(12px) saturate(180%) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(12px) saturate(180%) var(--lg-filter, none);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 15px rgba(79, 172, 254, 0.6),
+                        0 0 30px rgba(255, 110, 180, 0.3),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+        .switch-row.liquid-active {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            box-shadow: var(--shadow);
+        }
+        .switch-row.liquid-active .switch {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px) saturate(180%) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(8px) saturate(180%) var(--lg-filter, none);
+        }
+
+        /* ========== 滑块（图层优化 + 玻璃动画） ========== */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 22px;
+            border-radius: var(--radius);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            transition: background 0.2s, border-color 0.2s, backdrop-filter 0.2s;
+        }
+        .slider-icon {
+            width: 28px;
+            height: 28px;
+            color: rgba(255, 255, 255, 0.7);
+            display: grid;
+            place-items: center;
+        }
+        .slider-icon .icon { width: 20px; height: 20px; }
+        .slider-value {
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 42px;
+            text-align: right;
+            color: rgba(255, 255, 255, 0.85);
+            font-variant-numeric: tabular-nums;
+        }
+        .slider {
+            flex: 1;
+            position: relative;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            touch-action: none;
+        }
+        .slider-track {
+            position: relative;
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.30);
+            overflow: hidden;
+        }
+        .slider-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.4);
+            transition: width 0.1s linear;
+            z-index: 0;
+        }
+        .volume-slider .slider-fill {
+            background: var(--accent);
+        }
+        .slider-thumb {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            left: 30%;
+            width: 34px;
+            height: 22px;
+            border-radius: 999px;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        background 0.2s, backdrop-filter 0.2s, box-shadow 0.2s;
+            pointer-events: none;
+            z-index: 2; /* 确保 thumb 在 fill 上方 */
+        }
+        .slider.active .slider-thumb {
+            /* 拖动时果冻放大（倍数可在效果调节面板调整），松手时通过 overshoot 贝塞尔曲线回弹恢复 */
+            transform: translate(-50%, -50%) scale(var(--thumb-scale));
+        }
+        .slider-row.liquid-active {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            box-shadow: var(--shadow);
+        }
+        .slider-row.liquid-active .slider-thumb {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(12px) saturate(200%) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(12px) saturate(200%) var(--lg-filter, none);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.6),
+                        0 0 40px rgba(255, 110, 180, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+        .slider-row.liquid-active .slider-track {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .slider-row.liquid-active .slider-value,
+        .slider-row.liquid-active .slider-icon {
+            color: #fff;
+        }
+        .slider-row.refraction-active {
+            /* Chrome 不支持 backdrop-filter 中多个 url() 链，只保留边缘折射滤镜 */
+            backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+        }
+
+        /* ========== 卡片 ========== */
+        .card {
+            padding: 20px;
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0;
+        }
+        .card-header { display: flex; align-items: center; justify-content: space-between; }
+        .card-title { font-size: 15px; font-weight: 600; }
+        .card-sub { font-size: 12px; color: rgba(255, 255, 255, 0.45); }
+        .card-value {
+            font-size: 32px; font-weight: 700; letter-spacing: 1px;
+            background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.5));
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .card-trend {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 12px; padding: 4px 12px; border-radius: 999px;
+            background: rgba(50, 220, 150, 0.15); color: var(--success); font-weight: 600;
+        }
+        .card-trend .icon { width: 14px; height: 14px; }
+        .stat-bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+        .stat-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--success)); }
+
+        /* ========== 下拉选择（增加玻璃动画） ========== */
+        .select {
+            padding: 9px 18px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #fff; font-size: 13px; cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.6)' fill='none' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 38px;
+            transition: background 0.3s, box-shadow 0.3s, backdrop-filter 0.3s;
+        }
+        .select:focus,
+        .select.glass-active {
+            background-color: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px) saturate(180%) brightness(1.1) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.1) var(--lg-filter, none);
+            box-shadow: 0 0 0 3px rgba(79,172,254,0.25),
+                        inset 0 0 0 var(--edge-width) rgba(255,255,255,0.3);
+        }
+        .select option { background: #1b2038; color: #fff; }
+
+        /* ========== 标签 ========== */
+        .tag {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 14px; border-radius: 999px; font-size: 12px; font-weight: 500;
+            background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .tag-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .tag--blue { background: rgba(79, 172, 254, 0.15); border-color: rgba(79, 172, 254, 0.25); color: #8bbcff; }
+        .tag--green { background: rgba(66, 230, 164, 0.14); border-color: rgba(66, 230, 164, 0.25); color: var(--success); }
+        .tag--orange { background: rgba(255, 170, 60, 0.14); border-color: rgba(255, 170, 60, 0.25); color: #ffb74d; }
+
+        /* ========== 浮动面板 ========== */
+        .floating-panel {
+            position: fixed;
+            z-index: 999;
+            right: 20px;
+            bottom: 20px;
+            width: 250px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(var(--blur)) saturate(180%) brightness(var(--bright)) var(--lg-filter, none);
+            border: none;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            user-select: none;
+        }
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.05);
+            cursor: move;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .panel-title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
+        .panel-handle { display: flex; gap: 6px; }
+        .panel-handle span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); }
+        .panel-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+        .panel-item { display: flex; flex-direction: column; gap: 6px; }
+        .panel-item-label {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: rgba(255,255,255,0.65); font-weight: 500;
+        }
+        .panel-item-label .val { font-size: 11px; color: rgba(255,255,255,0.8); }
+        .floating-panel .slider { width: 100%; height: 20px; }
+        .floating-panel .slider-track { height: 6px; background: rgba(255,255,255,0.25); }
+        .floating-panel .slider-thumb { width: 24px; height: 14px; background: #fff; }
+        .floating-panel .slider-row { padding: 0; background: transparent; border: none; box-shadow: none; }
+        .floating-panel .slider-row.liquid-active {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+        .floating-panel .slider-row.liquid-active .slider-thumb {
+            background: rgba(255,255,255,0.25);
+            backdrop-filter: blur(8px) saturate(180%) var(--lg-filter, none);
+            -webkit-backdrop-filter: blur(8px) saturate(180%) var(--lg-filter, none);
+        }
+
+        /* ========== 响应式 ========== */
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .body { flex-direction: column; }
+            .floating-panel { width: 220px; right: 10px; bottom: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SVG 图标 + 折射滤镜（色散保留） -->
+    <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <filter id="lg-refraction" x="-20%" y="-20%" width="140%" height="140%">
+                <feColorMatrix type="matrix" in="SourceGraphic" result="red"
+                    values="1 0 0 0 0
+                            0 0 0 0 0
+                            0 0 0 0 0
+                            0 0 0 1 0" />
+                <feColorMatrix type="matrix" in="SourceGraphic" result="blue"
+                    values="0 0 0 0 0
+                            0 0 0 0 0
+                            0 0 1 0 0
+                            0 0 0 1 0" />
+                <feOffset in="red" dx="1.5" dy="0.5" result="redShifted" />
+                <feOffset in="blue" dx="-1.5" dy="-0.5" result="blueShifted" />
+                <feColorMatrix type="matrix" in="SourceGraphic" result="green"
+                    values="0 0 0 0 0
+                            0 1 0 0 0
+                            0 0 0 0 0
+                            0 0 0 1 0" />
+                <feBlend mode="screen" in="redShifted" in2="green" result="rg" />
+                <feBlend mode="screen" in="rg" in2="blueShifted" result="rgb" />
+                <feComposite in="rgb" in2="SourceGraphic" operator="arithmetic" k1="0.7" k2="0.3" k3="0" k4="0" />
+            </filter>
+            <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+            <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+            <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></symbol>
+            <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+            <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+            <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+            <symbol id="i-team" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+            <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+            <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></symbol>
+            <symbol id="i-volume" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+            <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+            <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></symbol>
+            <symbol id="i-bluetooth" viewBox="0 0 24 24"><polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"/></symbol>
+            <symbol id="i-plane" viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></symbol>
+            <symbol id="i-trend" viewBox="0 0 24 24"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></symbol>
+        </defs>
+    </svg>
+
+    <div class="bg"></div>
+
+    <div class="page">
+        <div class="glass-guard glass-guard--top">
+            <header class="topbar lg">
+                <div class="brand">
+                    <div class="brand-logo"><svg class="icon"><use href="#i-settings"/></svg></div>
+                    <span>Liquid Glass</span>
+                </div>
+                <div class="search-box">
+                    <svg class="icon"><use href="#i-search"/></svg>
+                    <input type="text" placeholder="搜索控件…">
+                </div>
+                <div class="topbar-right">
+                    <div class="icon-btn"><svg class="icon"><use href="#i-bell"/></svg><span class="dot"></span></div>
+                    <div class="icon-btn"><svg class="icon"><use href="#i-settings"/></svg></div>
+                    <div class="avatar">AM</div>
+                </div>
+                <div class="lg-mouse"></div>
+            </header>
+        </div>
+
+        <div class="body">
+            <aside class="sidebar lg">
+                <div class="sidebar-title">导航</div>
+                <div class="menu-item active"><svg class="icon"><use href="#i-grid"/></svg><span>仪表盘</span><span class="badge">12</span></div>
+                <div class="menu-item"><svg class="icon"><use href="#i-chart"/></svg><span>分析</span></div>
+                <div class="menu-item"><svg class="icon"><use href="#i-msg"/></svg><span>消息</span><span class="badge">3</span></div>
+                <div class="menu-item"><svg class="icon"><use href="#i-folder"/></svg><span>文件</span></div>
+                <div class="menu-item"><svg class="icon"><use href="#i-team"/></svg><span>团队</span></div>
+                <div class="sidebar-title" style="margin-top:18px;">系统</div>
+                <div class="menu-item"><svg class="icon"><use href="#i-settings"/></svg><span>设置</span></div>
+                <div class="menu-item"><svg class="icon"><use href="#i-logout"/></svg><span>退出</span></div>
+                <div class="lg-mouse"></div>
+            </aside>
+
+            <main class="main">
+                <div class="row">
+                    <div class="card lg" style="flex:1;min-width:200px;">
+                        <div class="card-header"><div><div class="card-title">CPU 使用率</div><div class="card-sub">当前负载</div></div><span class="tag tag--blue"><span class="tag-dot"></span>稳定</span></div>
+                        <div class="card-value">42%</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width:42%"></div></div>
+                        <div class="card-trend"><svg class="icon"><use href="#i-trend"/></svg>12% 较上周</div>
+                        <div class="lg-mouse"></div>
+                    </div>
+                    <div class="card lg" style="flex:1;min-width:200px;">
+                        <div class="card-header"><div><div class="card-title">内存占用</div><div class="card-sub">已用 7.2 / 16 GB</div></div><span class="tag tag--green"><span class="tag-dot"></span>正常</span></div>
+                        <div class="card-value">45%</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width:45%"></div></div>
+                        <div class="card-trend"><svg class="icon"><use href="#i-trend"/></svg>3% 较昨日</div>
+                        <div class="lg-mouse"></div>
+                    </div>
+                    <div class="card lg" style="flex:1;min-width:200px;">
+                        <div class="card-header"><div><div class="card-title">网络延迟</div><div class="card-sub">平均响应</div></div><span class="tag tag--orange"><span class="tag-dot"></span>波动</span></div>
+                        <div class="card-value">86 ms</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width:62%"></div></div>
+                        <div class="card-trend" style="color:#ffb74d;"><svg class="icon"><use href="#i-trend"/></svg>21ms 峰值</div>
+                        <div class="lg-mouse"></div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="control-group lg" style="flex:1.3;">
+                        <div class="group-label">按钮 <span class="sub">Button</span></div>
+                        <div class="row">
+                            <button class="btn btn--primary">主要按钮</button>
+                            <button class="btn">默认按钮</button>
+                            <button class="btn btn--danger">危险</button>
+                            <button class="btn btn--ghost">幽灵</button>
+                            <button class="btn btn--disabled">禁用</button>
+                        </div>
+                        <div class="lg-mouse"></div>
+                    </div>
+                    <div class="control-group lg" style="flex:1;">
+                        <div class="group-label">分段选择 <span class="sub">Segmented</span></div>
+                        <div class="segmented" id="seg1">
+                            <div class="seg-indicator" id="segIndicator1"></div>
+                            <button class="seg-item active" data-seg="日">日</button>
+                            <button class="seg-item" data-seg="周">周</button>
+                            <button class="seg-item" data-seg="月">月</button>
+                            <button class="seg-item" data-seg="年">年</button>
+                        </div>
+                        <div class="lg-mouse"></div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="control-group lg" style="flex:1;">
+                        <div class="group-label">开关 <span class="sub">Toggle · 膨胀动画</span></div>
+                        <div style="display:flex;flex-direction:column;gap:10px;">
+                            <div class="switch-row">
+                                <div class="switch-info"><span class="si-icon"><svg class="icon"><use href="#i-wifi"/></svg></span><div><div class="si-text">Wi-Fi</div><div class="si-sub">HomeNet_5G</div></div></div>
+                                <div class="switch active" onclick="toggleSwitch(this)"></div>
+                            </div>
+                            <div class="switch-row">
+                                <div class="switch-info"><span class="si-icon"><svg class="icon"><use href="#i-bluetooth"/></svg></span><div><div class="si-text">蓝牙</div><div class="si-sub">连接 2 个设备</div></div></div>
+                                <div class="switch" onclick="toggleSwitch(this)"></div>
+                            </div>
+                            <div class="switch-row">
+                                <div class="switch-info"><span class="si-icon"><svg class="icon"><use href="#i-plane"/></svg></span><div><div class="si-text">飞行模式</div><div class="si-sub">关闭所有无线</div></div></div>
+                                <div class="switch" onclick="toggleSwitch(this)"></div>
+                            </div>
+                        </div>
+                        <div class="lg-mouse"></div>
+                    </div>
+
+                    <div class="control-group lg" style="flex:1;">
+                        <div class="group-label">滑块 <span class="sub">Slider · 多层渲染</span></div>
+                        <div style="display:flex;flex-direction:column;gap:10px;">
+                            <div class="slider-row">
+                                <span class="slider-icon"><svg class="icon"><use href="#i-sun"/></svg></span>
+                                <div class="slider" data-min="0" data-max="100" data-value="65" data-callback="updateValueDisplay">
+                                    <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                                </div>
+                                <span class="slider-value">65%</span>
+                            </div>
+                            <div class="slider-row volume-slider">
+                                <span class="slider-icon"><svg class="icon"><use href="#i-volume"/></svg></span>
+                                <div class="slider" data-min="0" data-max="100" data-value="40" data-callback="updateValueDisplay">
+                                    <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                                </div>
+                                <span class="slider-value">40%</span>
+                            </div>
+                            <div class="slider-row">
+                                <span class="slider-icon"><svg class="icon"><use href="#i-music"/></svg></span>
+                                <div class="slider" data-min="0" data-max="100" data-value="80" data-callback="updateValueDisplay">
+                                    <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                                </div>
+                                <span class="slider-value">80%</span>
+                            </div>
+                        </div>
+                        <div class="lg-mouse"></div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="control-group lg" style="flex:1;">
+                        <div class="group-label">选择器 <span class="sub">Select</span></div>
+                        <div class="row">
+                            <select class="select"><option>标准视图</option><option>紧凑模式</option><option>宽屏模式</option></select>
+                            <select class="select"><option>简体中文</option><option>English</option><option>日本語</option></select>
+                        </div>
+                        <div class="lg-mouse"></div>
+                    </div>
+                    <div class="control-group lg" style="flex:1;">
+                        <div class="group-label">标签 <span class="sub">Tag</span></div>
+                        <div class="row">
+                            <span class="tag tag--blue"><span class="tag-dot"></span>进行中</span>
+                            <span class="tag tag--green"><span class="tag-dot"></span>已完成</span>
+                            <span class="tag tag--orange"><span class="tag-dot"></span>待审核</span>
+                            <span class="tag"><span class="tag-dot"></span>默认</span>
+                        </div>
+                        <div class="lg-mouse"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 悬浮面板 -->
+    <div class="glass-guard glass-guard--panel">
+        <div class="floating-panel" id="floatingPanel">
+        <div class="panel-header" id="panelHeader">
+            <div class="panel-title">效果调节</div>
+            <div class="panel-handle"><span></span><span></span><span></span></div>
+        </div>
+        <div class="panel-body">
+            <div class="panel-item">
+                <div class="panel-item-label"><span>圆角大小</span><span class="val" id="radiusVal">24px</span></div>
+                <div class="slider-row">
+                    <div class="slider" data-min="8" data-max="40" data-value="24" data-callback="updateRadius">
+                        <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-item">
+                <div class="panel-item-label"><span>模糊程度</span><span class="val" id="blurVal">16px</span></div>
+                <div class="slider-row">
+                    <div class="slider" data-min="0" data-max="60" data-value="16" data-callback="updateBlur">
+                        <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-item">
+                <div class="panel-item-label"><span>折射强度</span><span class="val" id="refractionVal">1.20</span></div>
+                <div class="slider-row">
+                    <div class="slider" data-min="0" data-max="6" data-value="1.2" data-step="0.1" data-callback="updateRefraction">
+                        <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-item">
+                <div class="panel-item-label"><span>液化程度</span><span class="val" id="distortionVal">0.60</span></div>
+                <div class="slider-row">
+                    <div class="slider" data-min="0" data-max="2" data-value="0.6" data-step="0.05" data-callback="updateDistortion">
+                        <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-item">
+                <div class="panel-item-label"><span>亮度</span><span class="val" id="brightVal">1.10</span></div>
+                <div class="slider-row">
+                    <div class="slider" data-min="0.9" data-max="1.3" data-value="1.1" data-step="0.01" data-callback="updateBrightness">
+                        <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-item">
+                <div class="panel-item-label"><span>高光边缘</span><span class="val" id="edgeVal">1px</span></div>
+                <div class="slider-row">
+                    <div class="slider" data-min="0" data-max="4" data-value="1" data-step="0.5" data-callback="updateEdgeWidth">
+                        <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-item">
+                <div class="panel-item-label"><span>滑块放大</span><span class="val" id="thumbScaleVal">1.30x</span></div>
+                <div class="slider-row">
+                    <div class="slider" data-min="1" data-max="2" data-value="1.3" data-step="0.05" data-callback="updateThumbScale">
+                        <div class="slider-track"><div class="slider-fill"></div></div><div class="slider-thumb"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+
+        /* ========== 核心：液化扭曲算法 ========== */
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        const XLINK_NS = 'http://www.w3.org/1999/xlink';
+        let svgContainer = null;
+        const filterCache = new Map();
+        const elementFilterMap = new WeakMap();
+        let filterIdCounter = 0;
+        let currentRefractionStrength = 1.2;
+        let currentDistortion = 0.6;
+
+        function ensureSvgContainer() {
+            if (svgContainer && document.body.contains(svgContainer)) return svgContainer;
+            const svg = document.createElementNS(SVG_NS, 'svg');
+            svg.setAttribute('xmlns', SVG_NS);
+            svg.setAttribute('width', '0');
+            svg.setAttribute('height', '0');
+            svg.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;overflow:hidden;';
+            const defs = document.createElementNS(SVG_NS, 'defs');
+            svg.appendChild(defs);
+            document.body.appendChild(svg);
+            svgContainer = svg;
+            return svg;
+        }
+
+        function smoothStep(a, b, t) {
+            const v = Math.max(0, Math.min(1, (t - a) / (b - a)));
+            return v * v * (3 - 2 * v);
+        }
+
+        function roundedRectSDF(x, y, halfW, halfH, r) {
+            const qx = Math.abs(x) - halfW + r;
+            const qy = Math.abs(y) - halfH + r;
+            return Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - r;
+        }
+
+        function buildDisplacementMap(width, height, radius, strength, distortion, clamp) {
+            // clamp: { left, top, viewportWidth, viewportHeight } 元素相对视口的屏幕位置，
+            // 用于把折射取样点钳制在网页范围内；null 表示无需限制
+            const longSide = Math.max(width, height);
+            const halfW = width / longSide / 2;
+            const halfH = height / longSide / 2;
+            const r = Math.min(radius / longSide, Math.min(halfW, halfH) - 0.001);
+            const refractionBand = 0.12;
+            // 自适应 Band 裁切：边缘过渡带不超过该轴最小半长的一半，
+            // 避免细长元素（如音量条）上过渡带超出自身一半
+            const effectiveBand = Math.min(refractionBand, Math.min(halfW, halfH) / 2);
+            const refractionStrength = strength * 0.05;
+            
+            const distortionScale = distortion * 0.35;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(width);
+            canvas.height = Math.round(height);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return { url: '', scale: 0 };
+            
+            const image = ctx.createImageData(canvas.width, canvas.height);
+            const data = image.data;
+            
+            let maxScale = 0;
+            const buf = new Float32Array(canvas.width * canvas.height * 2);
+            let bi = 0;
+            
+            for (let y = 0; y < canvas.height; y++) {
+                const v = (y / canvas.height - 0.5) * (height / longSide);
+                for (let x = 0; x < canvas.width; x++) {
+                    const u = (x / canvas.width - 0.5) * (width / longSide);
+                    const dist = roundedRectSDF(u, v, halfW, halfH, r);
+                    const t = smoothStep(-effectiveBand, 0, dist);
+                    const len = Math.hypot(u, v) || 1;
+                    const baseMag = t * refractionStrength * longSide;
+                    // 方向反转：折射取样方向取径向反方向
+                    let dx = -(u / len) * baseMag;
+                    let dy = -(v / len) * baseMag;
+                    
+                    if (t > 0 && distortionScale > 0) {
+                        const angle = Math.atan2(v, u);
+                        const radius = Math.hypot(u, v);
+                        const swirl = Math.sin(radius * 10 - angle * 4) * distortionScale * t;
+                        const flowX = Math.sin(x * 0.05 + y * 0.03) + 
+                                      Math.cos(x * 0.02 - y * 0.04) * 0.7;
+                        const flowY = Math.sin(y * 0.04 + x * 0.025) +
+                                      Math.cos(y * 0.055 - x * 0.018) * 0.7;
+                        
+                        const tangent = { x: -Math.sin(angle), y: Math.cos(angle) };
+                        dx += (tangent.x * swirl + flowX * distortionScale * t);
+                        dy += (tangent.y * swirl + flowY * distortionScale * t);
+                    }
+                    
+                    // 限制折射取样范围：把位移后的取样点钳制在网页（可见视口）范围内，
+                    // 贴边元素（顶栏/浮动面板）不会把视口外的浏览器 UI 折射进来
+                    if (clamp) {
+                        const sx = clamp.left + x + dx;
+                        const sy = clamp.top + y + dy;
+                        dx = Math.min(Math.max(sx, clamp.viewportLeft), clamp.viewportLeft + clamp.viewportWidth) - (clamp.left + x);
+                        dy = Math.min(Math.max(sy, clamp.viewportTop), clamp.viewportTop + clamp.viewportHeight) - (clamp.top + y);
+                    }
+                    
+                    maxScale = Math.max(maxScale, Math.abs(dx), Math.abs(dy));
+                    buf[bi++] = dx;
+                    buf[bi++] = dy;
+                }
+            }
+            
+            if (maxScale === 0) maxScale = 1;
+            
+            let i = 0;
+            for (let p = 0; p < data.length; p += 4) {
+                const r = buf[i++] / maxScale / 2 + 0.5;
+                const g = buf[i++] / maxScale / 2 + 0.5;
+                data[p] = r * 255;
+                data[p + 1] = g * 255;
+                data[p + 2] = 0;
+                data[p + 3] = 255;
+            }
+            
+            ctx.putImageData(image, 0, 0);
+            return { url: canvas.toDataURL(), scale: maxScale * 2 };
+        }
+
+        function getOrCreateFilter(width, height, radius, strength, distortion, clamp) {
+            const clampKey = clamp
+                ? `${Math.round(clamp.left)}-${Math.round(clamp.top)}-${Math.round(clamp.viewportLeft)}-${Math.round(clamp.viewportTop)}-${Math.round(clamp.viewportWidth)}-${Math.round(clamp.viewportHeight)}`
+                : 'free';
+            const key = `${width}-${height}-${radius}-${strength.toFixed(3)}-${distortion.toFixed(3)}-${clampKey}`;
+            if (filterCache.has(key)) return filterCache.get(key);
+            
+            const svg = ensureSvgContainer();
+            const defs = svg.querySelector('defs');
+            const id = `lg-edge-${++filterIdCounter}`;
+            
+            const filter = document.createElementNS(SVG_NS, 'filter');
+            filter.setAttribute('id', id);
+            filter.setAttribute('filterUnits', 'userSpaceOnUse');
+            filter.setAttribute('x', '0');
+            filter.setAttribute('y', '0');
+            filter.setAttribute('width', String(width));
+            filter.setAttribute('height', String(height));
+            filter.setAttribute('colorInterpolationFilters', 'sRGB');
+            
+            const feImage = document.createElementNS(SVG_NS, 'feImage');
+            feImage.setAttributeNS(XLINK_NS, 'href', '');
+            feImage.setAttribute('href', '');
+            feImage.setAttribute('x', '0');
+            feImage.setAttribute('y', '0');
+            feImage.setAttribute('width', String(width));
+            feImage.setAttribute('height', String(height));
+            feImage.setAttribute('preserveAspectRatio', 'none');
+            feImage.setAttribute('result', 'dispMap');
+            
+            const feDisp = document.createElementNS(SVG_NS, 'feDisplacementMap');
+            feDisp.setAttribute('in', 'SourceGraphic');
+            feDisp.setAttribute('in2', 'dispMap');
+            feDisp.setAttribute('xChannelSelector', 'R');
+            feDisp.setAttribute('yChannelSelector', 'G');
+            feDisp.setAttribute('scale', '0');
+            
+            filter.appendChild(feImage);
+            filter.appendChild(feDisp);
+            defs.appendChild(filter);
+            
+            const map = buildDisplacementMap(width, height, radius, strength, distortion, clamp);
+            feImage.setAttributeNS(XLINK_NS, 'href', map.url);
+            feImage.setAttribute('href', map.url);
+            feDisp.setAttribute('scale', String(map.scale));
+            
+            filterCache.set(key, id);
+            return id;
+        }
+
+        // 计算元素是否需要限制折射取样范围，以及可见网页区域（rect 坐标系下）：
+        //  - 浏览器放大 / 捏合缩放时（visualViewport.scale > 1），可见区域是视觉视口：
+        //      fixed 元素（顶栏/浮动面板）的 rect 相对视觉视口，可见范围即 [0, vv.width]×[0, vv.height]；
+        //      普通元素 rect 相对布局视口，可见范围从 vv.offsetLeft/offsetTop（×scale 还原为布局像素）开始
+        //  - 未放大时，可见范围即整个视口 [0, innerWidth]×[0, innerHeight]
+        // 其余远离边缘的元素返回 null（沿用无钳制贴图，保持滤镜缓存稳定）
+        function getClampInfo(el, rect) {
+            const vv = window.visualViewport;
+            let vLeft, vTop, vW, vH;
+            if (vv && vv.scale > 1.001) {
+                if (getComputedStyle(el).position === 'fixed') {
+                    vLeft = 0;
+                    vTop = 0;
+                    vW = vv.width;
+                    vH = vv.height;
+                } else {
+                    vLeft = vv.offsetLeft * vv.scale;
+                    vTop = vv.offsetTop * vv.scale;
+                    vW = vv.width * vv.scale;
+                    vH = vv.height * vv.scale;
+                }
+            } else {
+                vLeft = 0;
+                vTop = 0;
+                vW = window.innerWidth;
+                vH = window.innerHeight;
+            }
+            const longSide = Math.max(rect.width, rect.height);
+            // 位移贴图最大取样偏移 ≈ 折射强度 * 0.05 * 长边 + 液化噪声，留 1.5 倍余量
+            const margin = 4 + currentRefractionStrength * 0.05 * longSide * 1.5 + currentDistortion;
+            if (rect.left - vLeft > margin && rect.right < vLeft + vW - margin &&
+                rect.top - vTop > margin && rect.bottom < vTop + vH - margin) {
+                return null;
+            }
+            return {
+                left: rect.left, top: rect.top,
+                viewportLeft: vLeft, viewportTop: vTop,
+                viewportWidth: vW, viewportHeight: vH
+            };
+        }
+
+        function applyLiquidGlassEffect(el, enable, rectScale) {
+            // 通用液态玻璃效果开关，支持任何元素；
+            // rectScale 用于元素处于放大动画时，按目标尺寸（当前尺寸 × 倍数）调用着色器生成位移贴图
+            if (enable) {
+                const rect = el.getBoundingClientRect();
+                const width = Math.round(rect.width * (rectScale || 1));
+                const height = Math.round(rect.height * (rectScale || 1));
+                if (width < 8 || height < 8) return;
+                const style = getComputedStyle(el);
+                const radius = parseFloat(style.borderTopLeftRadius) || 16;
+                const filterId = getOrCreateFilter(width, height, radius, currentRefractionStrength, currentDistortion, getClampInfo(el, rect));
+                el.style.setProperty('--lg-filter', `url(#${filterId})`);
+                el.classList.add('glass-active');
+                elementFilterMap.set(el, filterId);
+            } else {
+                el.classList.remove('glass-active');
+                el.style.removeProperty('--lg-filter');
+            }
+        }
+
+        function updateElementFilter(el) {
+            const rect = el.getBoundingClientRect();
+            const width = Math.round(rect.width);
+            const height = Math.round(rect.height);
+            if (width < 8 || height < 8) return;
+            
+            const style = getComputedStyle(el);
+            const radius = parseFloat(style.borderTopLeftRadius) || 16;
+            const strength = currentRefractionStrength;
+            const distortion = currentDistortion;
+            
+            const filterId = getOrCreateFilter(width, height, radius, strength, distortion, getClampInfo(el, rect));
+            el.style.setProperty('--lg-filter', `url(#${filterId})`);
+            elementFilterMap.set(el, filterId);
+        }
+
+        function refreshAllFilters() {
+            document.querySelectorAll('.lg, .floating-panel').forEach(el => {
+                updateElementFilter(el);
+            });
+        }
+
+        /* ========== 自定义滑块 ========== */
+        function initSlider(sliderEl) {
+            const track = sliderEl.querySelector('.slider-track');
+            const thumb = sliderEl.querySelector('.slider-thumb');
+            const fill = sliderEl.querySelector('.slider-fill');
+            if (!track || !thumb || !fill) return;
+
+            let min = parseFloat(sliderEl.dataset.min) || 0;
+            let max = parseFloat(sliderEl.dataset.max) || 100;
+            let step = parseFloat(sliderEl.dataset.step) || 1;
+            let value = parseFloat(sliderEl.dataset.value) ?? min;
+            let active = false;
+
+            function setValue(val, triggerCallback = true) {
+                val = Math.min(max, Math.max(min, val));
+                if (step < 1) val = Math.round(val / step) * step;
+                else val = Math.round(val);
+
+                value = val;
+                const pct = ((value - min) / (max - min)) * 100;
+                thumb.style.left = pct + '%';
+                fill.style.width = pct + '%';
+                sliderEl.dataset.value = value;
+
+                const container = sliderEl.closest('.slider-row') || sliderEl.closest('.panel-item');
+                let display = container ? container.querySelector('.slider-value') : null;
+                if (!display) display = container ? container.querySelector('.val') : null;
+                if (display) {
+                    const cb = sliderEl.dataset.callback;
+                    if (cb === 'updateThumbScale') display.textContent = value + 'x';
+                    else if (cb === 'updateEdgeWidth') display.textContent = value + 'px';
+                    else if (step < 1) display.textContent = value.toFixed(2);
+                    else {
+                        if (cb === 'updateRadius' || cb === 'updateBlur') display.textContent = value + 'px';
+                        else display.textContent = value;
+                    }
+                }
+
+                const callbackName = sliderEl.dataset.callback;
+                if (callbackName && window[callbackName] && triggerCallback) {
+                    window[callbackName](value, sliderEl);
+                }
+            }
+
+            function updateFromClientX(clientX) {
+                const rect = track.getBoundingClientRect();
+                const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+                const pct = x / rect.width;
+                const rawVal = min + (max - min) * pct;
+                setValue(rawVal);
+            }
+
+            function activateLiquid() {
+                if (!active) return;
+                const row = sliderEl.closest('.slider-row');
+                if (row) {
+                    row.classList.add('liquid-active');
+                    row.classList.add('refraction-active');
+                    // 整行也应用边缘折射，避免 --lg-filter 为空导致只模糊不折射
+                    applyLiquidGlassEffect(row, true);
+                }
+                // 对 thumb 也应用液态玻璃效果
+                applyLiquidGlassEffect(thumb, true);
+            }
+
+            function deactivateLiquid() {
+                const row = sliderEl.closest('.slider-row');
+                if (row) {
+                    row.classList.remove('liquid-active');
+                    row.classList.remove('refraction-active');
+                    applyLiquidGlassEffect(row, false);
+                }
+                applyLiquidGlassEffect(thumb, false);
+            }
+
+            sliderEl.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                active = true;
+                sliderEl.classList.add('active');
+                activateLiquid();
+                updateFromClientX(e.clientX);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!active) return;
+                updateFromClientX(e.clientX);
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (!active) return;
+                active = false;
+                sliderEl.classList.remove('active');
+                deactivateLiquid();
+            });
+
+            sliderEl.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                active = true;
+                sliderEl.classList.add('active');
+                activateLiquid();
+                updateFromClientX(e.touches[0].clientX);
+            }, { passive: false });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!active) return;
+                updateFromClientX(e.touches[0].clientX);
+            }, { passive: false });
+
+            window.addEventListener('touchend', () => {
+                if (!active) return;
+                active = false;
+                sliderEl.classList.remove('active');
+                deactivateLiquid();
+            });
+
+            setValue(value, false);
+        }
+
+        /* ========== 回调 ========== */
+        window.updateValueDisplay = function(val, slider) {};
+
+        let radiusUpdateTimer, refractionUpdateTimer, distortionUpdateTimer;
+
+        window.updateRadius = function(val) {
+            document.documentElement.style.setProperty('--radius', val + 'px');
+            document.getElementById('radiusVal').textContent = val + 'px';
+            clearTimeout(radiusUpdateTimer);
+            radiusUpdateTimer = setTimeout(refreshAllFilters, 50);
+        };
+
+        window.updateBlur = function(val) {
+            document.documentElement.style.setProperty('--blur', val + 'px');
+            document.getElementById('blurVal').textContent = val + 'px';
+        };
+
+        window.updateRefraction = function(val) {
+            currentRefractionStrength = val;
+            document.documentElement.style.setProperty('--refraction-strength', val);
+            document.getElementById('refractionVal').textContent = val.toFixed(2);
+            const filter = document.getElementById('lg-refraction');
+            if (filter) {
+                const redOffset = filter.querySelector('feOffset[in="red"]');
+                const blueOffset = filter.querySelector('feOffset[in="blue"]');
+                if (redOffset) {
+                    redOffset.setAttribute('dx', (val * 1.5).toFixed(2));
+                    redOffset.setAttribute('dy', (val * 0.5).toFixed(2));
+                }
+                if (blueOffset) {
+                    blueOffset.setAttribute('dx', (-val * 1.5).toFixed(2));
+                    blueOffset.setAttribute('dy', (-val * 0.5).toFixed(2));
+                }
+            }
+            clearTimeout(refractionUpdateTimer);
+            refractionUpdateTimer = setTimeout(refreshAllFilters, 50);
+        };
+
+        window.updateDistortion = function(val) {
+            currentDistortion = val;
+            document.getElementById('distortionVal').textContent = val.toFixed(2);
+            clearTimeout(distortionUpdateTimer);
+            distortionUpdateTimer = setTimeout(refreshAllFilters, 50);
+        };
+
+        window.updateBrightness = function(val) {
+            document.documentElement.style.setProperty('--bright', val);
+            document.getElementById('brightVal').textContent = val.toFixed(2);
+        };
+
+        window.updateEdgeWidth = function(val) {
+            document.documentElement.style.setProperty('--edge-width', val + 'px');
+            document.getElementById('edgeVal').textContent = val + 'px';
+        };
+
+        window.updateThumbScale = function(val) {
+            document.documentElement.style.setProperty('--thumb-scale', val);
+            document.getElementById('thumbScaleVal').textContent = val + 'x';
+        };
+
+        /* ========== 开关动画 ========== */
+        window.toggleSwitch = function(el) {
+            const isActive = el.classList.contains('active');
+            const row = el.closest('.switch-row');
+            el.classList.remove('animating-on', 'animating-off');
+            void el.offsetWidth;
+            if (isActive) {
+                el.classList.remove('active');
+                el.classList.add('animating-off');
+            } else {
+                el.classList.add('active');
+                el.classList.add('animating-on');
+            }
+            if (row) row.classList.add('liquid-active');
+            // 开关滑块也应用液态玻璃
+            applyLiquidGlassEffect(el, true);
+            el.addEventListener('animationend', function handler() {
+                el.classList.remove('animating-on', 'animating-off');
+                if (row) row.classList.remove('liquid-active');
+                applyLiquidGlassEffect(el, false);
+                el.removeEventListener('animationend', handler);
+            });
+        };
+
+        /* ========== 分段选择器滑动指示器 ========== */
+        function initSegmented(segEl) {
+            const indicator = segEl.querySelector('.seg-indicator');
+            if (!indicator) return;
+            const items = Array.from(segEl.querySelectorAll('.seg-item'));
+            if (!items.length) return;
+
+            // 待选择元素布局：滑块宽度 = 单个元素宽度（由元素数量均分选择器长度），
+            // 滑块中心始终对准元素中心
+            function itemLayout(item) {
+                const segRect = segEl.getBoundingClientRect();
+                const itemRect = item.getBoundingClientRect();
+                return {
+                    left: itemRect.left - segRect.left,
+                    width: itemRect.width,
+                    center: itemRect.left + itemRect.width / 2
+                };
+            }
+
+            // 将指示器吸附到指定项（animate=false 时无过渡，用于初始化）
+            function snapTo(item, animate) {
+                const l = itemLayout(item);
+                if (!animate) indicator.style.transition = 'none';
+                indicator.style.left = l.left + 'px';
+                indicator.style.width = l.width + 'px';
+                if (!animate) {
+                    indicator.offsetHeight; // 强制回流，让 no-transition 生效
+                    indicator.style.transition = '';
+                }
+                items.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            }
+
+            // 拖动中：指示器以鼠标 X 为中心跟手（滑块长度 = 单个元素宽度，由元素数量均分），
+            // Y 在果冻放大的基础上小幅上下偏移（--dy，钳制 ±10px），动画完成后归零
+            function moveIndicator(x, y) {
+                const segRect = segEl.getBoundingClientRect();
+                const indWidth = indicator.getBoundingClientRect().width;
+                let left = x - segRect.left - indWidth / 2;
+                const maxLeft = segRect.width - indWidth - 5;
+                indicator.style.left = Math.max(5, Math.min(maxLeft, left)) + 'px';
+                if (y != null) {
+                    const dy = Math.max(-10, Math.min(10, y - (segRect.top + segRect.height / 2)));
+                    indicator.style.setProperty('--dy', dy + 'px');
+                }
+                refreshIndicatorShader(); // 拖动过程中动态刷新着色器贴图（rAF 节流）
+            }
+
+            // 拖动中动态更新折射贴图（rAF 节流）：位置/尺寸变化时重新调用着色器计算
+            let filterRAF = 0;
+            function refreshIndicatorShader() {
+                if (filterRAF) return;
+                filterRAF = requestAnimationFrame(() => {
+                    filterRAF = 0;
+                    updateElementFilter(indicator);
+                });
+            }
+
+            // 松手吸附：比较滑块中心与相邻元素中心的距离，选择最小的一方
+            function nearestItemToIndicator() {
+                const indRect = indicator.getBoundingClientRect();
+                const indCenter = indRect.left + indRect.width / 2;
+                let best = null;
+                let bestDist = Infinity;
+                items.forEach(item => {
+                    const l = itemLayout(item);
+                    const d = Math.abs(l.center - indCenter);
+                    if (d < bestDist) { bestDist = d; best = item; }
+                });
+                return best;
+            }
+
+            // 果冻放大（大小绑定“滑块放大” --thumb-scale）+ 液态玻璃，
+            // 放大期间允许滑块小幅上下偏移，动画完成后移除类即重置上下距并恢复白色方块
+            function activateJelly() {
+                indicator.classList.add('jelly');
+                // 滑块进入动画：读取“滑块放大”倍数，按放大后的目标尺寸调用着色器
+                // 动态计算折射位移贴图，保证折射覆盖整个动画滑块
+                const scale = parseFloat(getComputedStyle(indicator).getPropertyValue('--thumb-scale')) || 1;
+                applyLiquidGlassEffect(indicator, true, scale);
+            }
+            function deactivateJelly() {
+                indicator.classList.remove('jelly');
+                indicator.style.removeProperty('--dy'); // 重置拖动时的上下偏移
+                applyLiquidGlassEffect(indicator, false);
+            }
+
+            let dragging = false;
+            let clickMode = false;
+            let glassTimer = null;
+
+            segEl.addEventListener('pointerdown', (e) => {
+                clearTimeout(glassTimer);
+                const targetItem = e.target.closest('.seg-item');
+                const activeItem = items.find(i => i.classList.contains('active'));
+                // 鼠标直接点击了其他元素 → 果冻放大 + 液态玻璃，滑块滑动到达该元素后恢复
+                if (targetItem && targetItem !== activeItem) {
+                    clickMode = true;
+                    activateJelly();
+                    snapTo(targetItem, true);
+                    glassTimer = setTimeout(deactivateJelly, 480);
+                    return;
+                }
+                // 否则：鼠标按住了滑块进行移动
+                dragging = true;
+                segEl.classList.add('dragging');
+                activateJelly();
+                moveIndicator(e.clientX, e.clientY);
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                // X 跟手定位，Y 小幅跟随（--dy）
+                moveIndicator(e.clientX, e.clientY);
+            });
+
+            window.addEventListener('pointerup', () => {
+                if (clickMode) { clickMode = false; return; }
+                if (!dragging) return;
+                dragging = false;
+                segEl.classList.remove('dragging');
+                // 松手瞬间：判断滑块与相邻两个元素的距离，选择最小的一方吸附
+                const target = nearestItemToIndicator();
+                if (target) snapTo(target, true);
+                glassTimer = setTimeout(deactivateJelly, 480);
+            });
+
+            // 初始化：根据元素数量确定滑块长度，并让初始待选择元素位于滑块中心
+            const activeItem = segEl.querySelector('.seg-item.active') || items[0];
+            if (activeItem) snapTo(activeItem, false);
+        }
+
+        /* ========== 按钮和选择器玻璃动画 ========== */
+        function initButtonAndSelectGlassEffect() {
+            // 覆盖所有按钮/分段项/图标按钮/菜单项/头像/下拉，按压时触发液态玻璃
+            document.querySelectorAll('button:not(.btn--disabled), .select, .icon-btn, .menu-item, .avatar').forEach(el => {
+                if (el.tagName === 'SELECT') {
+                    el.addEventListener('focus', () => applyLiquidGlassEffect(el, true));
+                    el.addEventListener('blur', () => applyLiquidGlassEffect(el, false));
+                    return;
+                }
+                el.addEventListener('pointerdown', () => applyLiquidGlassEffect(el, true));
+                const deactivate = () => applyLiquidGlassEffect(el, false);
+                el.addEventListener('pointerup', deactivate);
+                el.addEventListener('pointercancel', deactivate);
+                el.addEventListener('pointerleave', deactivate);
+            });
+        }
+
+        /* ========== 初始化 ========== */
+        document.querySelectorAll('.slider').forEach(initSlider);
+        document.querySelectorAll('.segmented').forEach(initSegmented);
+        initButtonAndSelectGlassEffect();
+
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        document.querySelectorAll('.lg').forEach(el => {
+            el.addEventListener('mousemove', (e) => {
+                const light = el.querySelector('.lg-mouse');
+                if (!light) return;
+                const rect = el.getBoundingClientRect();
+                light.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+                light.style.setProperty('--my', (e.clientY - rect.top) + 'px');
+            });
+        });
+
+        /* ========== 悬浮面板拖拽 ========== */
+        (function() {
+            const panel = document.getElementById('floatingPanel');
+            const header = document.getElementById('panelHeader');
+            let isDragging = false;
+            let startX, startY, startLeft, startTop;
+
+            function onStart(e) {
+                isDragging = true;
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                startX = clientX;
+                startY = clientY;
+                const rect = panel.getBoundingClientRect();
+                startLeft = rect.left;
+                startTop = rect.top;
+                e.preventDefault();
+            }
+
+            function onMove(e) {
+                if (!isDragging) return;
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                const dx = clientX - startX;
+                const dy = clientY - startY;
+                let newLeft = startLeft + dx;
+                let newTop = startTop + dy;
+                const maxX = window.innerWidth - panel.offsetWidth - 10;
+                const maxY = window.innerHeight - panel.offsetHeight - 10;
+                newLeft = Math.max(10, Math.min(newLeft, maxX));
+                newTop = Math.max(10, Math.min(newTop, maxY));
+                panel.style.left = newLeft + 'px';
+                panel.style.top = newTop + 'px';
+                panel.style.right = 'auto';
+                panel.style.bottom = 'auto';
+            }
+
+            function onEnd() {
+                isDragging = false;
+                // 面板位置变化后，取样范围限制随之更新
+                requestAnimationFrame(() => updateElementFilter(panel));
+            }
+
+            header.addEventListener('mousedown', onStart);
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onEnd);
+            header.addEventListener('touchstart', onStart, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd);
+        })();
+
+        /* ========== 响应式自动更新滤镜 ========== */
+        const resizeObserver = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const el = entry.target;
+                if (el.matches('.lg, .floating-panel, .glass-active')) {
+                    requestAnimationFrame(() => updateElementFilter(el));
+                }
+            }
+        });
+        document.querySelectorAll('.lg, .floating-panel').forEach(el => resizeObserver.observe(el));
+
+        /* ========== 浏览器缩放 / 捏合放大时更新取样限制 ==========
+           放大后视口尺寸变化，旧贴图的钳制范围失效会导致再次取到视口外的内容，
+           因此监听窗口 resize 与视觉视口 resize/平移，及时重新生成贴图 */
+        let zoomRefreshPending = false;
+        function refreshFiltersOnZoom() {
+            if (zoomRefreshPending) return;
+            zoomRefreshPending = true;
+            requestAnimationFrame(() => {
+                zoomRefreshPending = false;
+                refreshAllFilters();
+            });
+        }
+        window.addEventListener('resize', refreshFiltersOnZoom);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', refreshFiltersOnZoom);
+            let vvPanTimer = 0;
+            // 捏合平移会改变视觉视口偏移（普通元素的可见范围），放大状态下低频刷新
+            window.visualViewport.addEventListener('scroll', () => {
+                if (window.visualViewport.scale <= 1.001) return;
+                clearTimeout(vvPanTimer);
+                vvPanTimer = setTimeout(refreshFiltersOnZoom, 250);
+            });
+        }
+
+        /* ========== 初始同步 ========== */
+        window.updateRadius(24);
+        window.updateBlur(16);
+        window.updateRefraction(1.2);
+        window.updateDistortion(0.6);
+        window.updateBrightness(1.1);
+        refreshAllFilters();
+
+        console.log('✓ 液态玻璃控件库（液化折射版·优化）已加载');
+    </script>
+</body>
+</html>
