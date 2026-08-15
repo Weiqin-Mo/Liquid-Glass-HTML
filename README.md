@@ -1,4 +1,4 @@
-# 液态玻璃组件库（Liquid Glass UI Kit）
+# 液态玻璃网页组件实现（Liquid Glass UI Web）
 
 基于 **圆角矩形 SDF 边缘折射** 算法的液态玻璃（Liquid Glass）交互组件库，纯 HTML / CSS / JS 单文件实现，无任何第三方依赖。视觉效果接近 iOS 26 液态玻璃：只让玻璃**边缘发生弯曲**，内部几乎不变形，符合光学折射规律。
 
