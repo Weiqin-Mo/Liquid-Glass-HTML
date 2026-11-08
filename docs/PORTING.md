@@ -18,13 +18,13 @@
 
 | 文件 | 当前职责 | 移植时注意 |
 | --- | --- | --- |
-| `liquid-glass-engine.js` | 大面板 SDF/液化位移图、SVG 缓存、兼容入口 | 不将其参数直接覆盖到小控件 |
-| `small-liquid-glass-engine.js` | 小控件位移图、每个活跃元素的 SVG、页面级透镜 | 与位置、样式、生命周期关联最强 |
-| `liquid-glass-controls.js` | 参数滑块事件、ARIA、全局参数回调 | 通过 `data-callback` 查找 `window` 函数 |
-| `segmented-control.js` | 分段弹簧状态、指针捕获、键盘、选择事件 | 位置/宽度写入 DOM，不由框架重复驱动 |
-| `liquid-glass-buttons.js` | 按钮/下拉委托事件、开关圆钮 | 加载后自动绑定，不是导出的组件工厂 |
-| `floating-panel.js` | 面板收展、拖动、焦点转移、WAAPI | 自动查找固定 ID 并创建按钮 |
-| `background-dimmer.js` | `.bg` 的遮罩透明度 | 与玻璃滤镜参数独立 |
+| `js/liquid-glass-engine.js` | 大面板 SDF/液化位移图、SVG 缓存、兼容入口 | 不将其参数直接覆盖到小控件 |
+| `js/small-liquid-glass-engine.js` | 小控件位移图、每个活跃元素的 SVG、页面级透镜 | 与位置、样式、生命周期关联最强 |
+| `js/liquid-glass-controls.js` | 参数滑块事件、ARIA、全局参数回调 | 通过 `data-callback` 查找 `window` 函数 |
+| `js/segmented-control.js` | 分段弹簧状态、指针捕获、键盘、选择事件 | 位置/宽度写入 DOM，不由框架重复驱动 |
+| `js/liquid-glass-buttons.js` | 按钮/下拉委托事件、开关圆钮 | 加载后自动绑定，不是导出的组件工厂 |
+| `js/floating-panel.js` | 面板收展、拖动、焦点转移、WAAPI | 自动查找固定 ID 并创建按钮 |
+| `js/background-dimmer.js` | `.bg` 的遮罩透明度 | 与玻璃滤镜参数独立 |
 | `liquid-glass-slider.css` | 滑块、开关圆钮、分段覆盖样式与透镜层 | 缺少此文件可能有滤镜但看不见正确外观 |
 | `floating-panel.css` | 面板/悬浮球状态与内容动画 | 与 `data-collapsed` / `data-morphing` 配套 |
 
@@ -34,22 +34,24 @@
 
 当前为 IIFE + `window` 全局接口，未使用 ESM、TypeScript 或构建工具。脚本在页面主体 DOM 之后依次加载：
 
+共享运行时脚本统一存放在根目录的 `js/`。以下引用以根目录的 HTML 为基准；`examples/` 中的页面使用 `../js/`。
+
 ```html
 <link rel="stylesheet" href="liquid-glass-slider.css">
 <link rel="stylesheet" href="floating-panel.css">
 <!-- 页面与组件 DOM 必须先存在 -->
-<script src="small-liquid-glass-engine.js"></script>
-<script src="liquid-glass-engine.js"></script>
-<script src="background-dimmer.js"></script>
-<script src="liquid-glass-controls.js"></script>
-<script src="segmented-control.js"></script>
-<script src="liquid-glass-buttons.js"></script>
-<script src="floating-panel.js"></script>
+<script src="js/small-liquid-glass-engine.js"></script>
+<script src="js/liquid-glass-engine.js"></script>
+<script src="js/background-dimmer.js"></script>
+<script src="js/liquid-glass-controls.js"></script>
+<script src="js/segmented-control.js"></script>
+<script src="js/liquid-glass-buttons.js"></script>
+<script src="js/floating-panel.js"></script>
 ```
 
 随后主页面调用 `LiquidGlassControls.initSlider`、`SegmentedControl.init` 和大面板参数初始化。两个控制器不是通用的 DOM 自动发现服务。
 
-`background-dimmer.js` 自动设置 45% 压暗；按钮脚本自动绑定已有开关并安装文档事件；面板脚本自动查找 `#floatingPanel`。这些脚本不能直接在服务端执行，也不应在每次组件渲染时重新加载。
+`js/background-dimmer.js` 自动设置 45% 压暗；按钮脚本自动绑定已有开关并安装文档事件；面板脚本自动查找 `#floatingPanel`。这些脚本不能直接在服务端执行，也不应在每次组件渲染时重新加载。
 
 ## 4. 公开接口：哪些真实存在
 

@@ -24,7 +24,7 @@ function fixture(reduce = false) {
         ResizeObserver: class { observe() {} }, CustomEvent: class {},
         SmallLiquidGlass: { apply: (el,on) => enabled = on, update() {}, setMix(el,mix) { assert(mix >= 0 && mix <= 1); } }
     };
-    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../segmented-control.js'), 'utf8'), ctx);
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../js/segmented-control.js'), 'utf8'), ctx);
     ctx.window.SegmentedControl.init(root);
     function advance(count = 180) { for (let i=0;i<count && queue.size;i++) {
         const batch = [...queue.values()]; queue.clear(); time += 1000/60; batch.forEach(f=>f(time));

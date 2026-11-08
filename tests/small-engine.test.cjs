@@ -32,7 +32,7 @@ const document = { body, createElementNS: (ns,name) => element(name),
 const context = { window: {}, document, ResizeObserver: class { observe() {} unobserve() {} },
     requestAnimationFrame: () => 1, cancelAnimationFrame() {},
     getComputedStyle: () => ({ borderTopLeftRadius: '999px' }) };
-const source = fs.readFileSync(path.join(__dirname, '../small-liquid-glass-engine.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../js/small-liquid-glass-engine.js'), 'utf8');
 // Expose the numeric map builder inside this isolated test VM only.
 vm.runInNewContext(source.replace('window.SmallLiquidGlass = {', 'window.testBuildMap = buildMap; window.SmallLiquidGlass = {'), context);
 const engine = context.window.SmallLiquidGlass;

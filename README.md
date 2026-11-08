@@ -16,7 +16,7 @@ cd Liquid-Glass-HTML
 - [完整组件展示](./Liquid-Glass%20index.html)：包含各类控件和参数面板。
 - [分段指示器展示](./分段指示器.html)：集中体验胶囊滑动、弹簧吸附与玻璃折射。
 
-保留页面旁边的 JS、CSS 和图片文件；页面不再是可单独拷贝的单文件实现。背景使用根目录的 `bg.jpg`，居中铺满视口；图片缺失时显示渐变背景。
+保留完整的 `js/` 目录，以及页面旁边的 CSS 和图片文件；页面不再是可单独拷贝的单文件实现。主页面从 `js/` 加载脚本，`examples/` 中的页面从 `../js/` 加载。背景使用根目录的 `bg.jpg`，居中铺满视口；图片缺失时显示渐变背景。
 
 ## 交互效果
 
@@ -64,7 +64,7 @@ cd Liquid-Glass-HTML
 
 ### 大面板引擎
 
-`liquid-glass-engine.js` 保留圆角矩形 SDF 边缘折射思路：
+`js/liquid-glass-engine.js` 保留圆角矩形 SDF 边缘折射思路：
 
 1. 在 Canvas 中计算位移，并叠加液化扰动。
 2. 将位移编码进图像的 R / G 通道。
@@ -75,7 +75,7 @@ cd Liquid-Glass-HTML
 
 ### 小控件引擎
 
-`small-liquid-glass-engine.js` 单独管理参数、位移图和活跃滤镜，按控件尺寸计算折射，不依赖大面板参数。
+`js/small-liquid-glass-engine.js` 单独管理参数、位移图和活跃滤镜，按控件尺寸计算折射，不依赖大面板参数。
 
 激活态参数滑块、分段胶囊和开关圆钮会在 `body` 下创建一个透明透镜层，跟随原控件的屏幕位置与尺寸。这样透镜可以采样下方已绘制的背景、面板、轨道和文字，避免被父级玻璃的背景采样范围隔断。原控件保留布局，交互结束后移除透镜和滤镜并恢复白色。
 
@@ -95,17 +95,19 @@ cd Liquid-Glass-HTML
 Liquid-Glass index.html        完整组件展示
 分段指示器.html                 分段交互展示
 bg.jpg                        背景图片
-liquid-glass-engine.js         大面板渲染引擎
-small-liquid-glass-engine.js   小控件渲染与页面级透镜
-liquid-glass-controls.js       参数滑块及参数回调
-liquid-glass-buttons.js        按钮、下拉与开关交互
-segmented-control.js          分段选择器弹簧控制器
+js/                           共享运行时脚本
+  liquid-glass-engine.js       大面板渲染引擎
+  small-liquid-glass-engine.js 小控件渲染与页面级透镜
+  liquid-glass-controls.js     参数滑块及参数回调
+  liquid-glass-buttons.js      按钮、下拉与开关交互
+  segmented-control.js        分段选择器弹簧控制器
+  floating-panel.js           面板拖动与水滴收展
+  background-dimmer.js        背景压暗控制
 liquid-glass-slider.css        滑块、小控件与透镜样式
-floating-panel.js             面板拖动与水滴收展
 floating-panel.css            面板收展样式
-background-dimmer.js           背景压暗控制
 examples/                     独立示例
 tests/                        Node.js 回归测试
+docs/                         移植技术文档
 ```
 
 ## 本地验证

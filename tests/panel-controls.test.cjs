@@ -19,7 +19,7 @@ function panelTest(reduced) {
         window:{addEventListener(){},updateElementFilter(){refreshes++;}},
         matchMedia:()=>({matches:reduced}),innerWidth:1000,innerHeight:800,
         getComputedStyle:()=>({borderRadius:'24px',getPropertyValue:()=> '24px'})};
-    vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../floating-panel.js'),'utf8'),ctx);
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/floating-panel.js'),'utf8'),ctx);
     const toggle=header.children[0],orb=panel.children[0];
     toggle.handlers.click();
     assert.equal(panel.dataset.collapsed,'true');assert.equal(panel.style.width,'56px');
@@ -44,7 +44,7 @@ const ctx={document:{querySelectorAll:s=>s==='.switch'?[control]:s==='.btn--disa
     window:{applyLiquidGlassEffect:(e,on)=>effects.push(on),addEventListener(){}},
     SmallLiquidGlass:{apply:(e,on)=>thumbEffects.push(on)},matchMedia:()=>({matches:false}),
     setTimeout:f=>{timers.set(++timerId,f);return timerId;},clearTimeout:id=>timers.delete(id)};
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../liquid-glass-buttons.js'),'utf8'),ctx);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/liquid-glass-buttons.js'),'utf8'),ctx);
 assert(disabled.disabled);
 control.handlers.click();assert.equal(control.attrs['aria-checked'],'true');assert.equal(thumbEffects.at(-1),true);
 control.children[0].handlers.transitionend({propertyName:'transform'});assert.equal(thumbEffects.at(-1),false);
