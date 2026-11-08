@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glass Parameters</title>
+<style>
+  * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; display: grid; place-items: center; color: white; font: 16px system-ui; background: linear-gradient(135deg, #10243f, #51224f); }
+  .panel { width: min(430px, calc(100vw - 40px)); padding: 28px; border-radius: 26px; background: rgb(255 255 255 / 9%); backdrop-filter: blur(18px) saturate(180%) brightness(1.1) var(--lg-filter, none); } label { display: grid; gap: 8px; margin-top: 16px; } output { float: right; } input { width: 100%; accent-color: #72c8ff; }
+</style>
+<body data-liquid-glass-targets=".panel">
+  <main class="panel"><h1>参数面板</h1><label>折射强度 <output id="strengthValue">1.2</output><input id="strength" type="range" min="0" max="6" value="1.2" step="0.1"></label><label>液化程度 <output id="distortionValue">0.6</output><input id="distortion" type="range" min="0" max="2" value="0.6" step="0.05"></label></main>
+  <script src="../liquid-glass-engine.js"></script>
+  <script>
+    const panel = document.querySelector('.panel'); LiquidGlass.refresh();
+    [['strength', 'strengthValue', 'refractionStrength'], ['distortion', 'distortionValue', 'distortion']].forEach(([inputId, outputId, key]) => {
+      const input = document.getElementById(inputId), output = document.getElementById(outputId);
+      input.addEventListener('input', () => { output.value = input.value; LiquidGlass.setParameters({ [key]: Number(input.value) }); LiquidGlass.refresh(); });
+    });
+  </script>
+</body>
+</html>

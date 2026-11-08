@@ -1,0 +1,85 @@
+/* Only the thumb filters the backdrop; the track stays sharp beneath it. */
+.slider-row { display:flex; align-items:center; gap:14px; padding:16px 22px; border:1px solid #ffffff12; border-radius:var(--radius,24px); background:#ffffff05; }
+.slider-icon { display:grid; place-items:center; width:24px; color:#ffffffb3; }
+.slider-value { min-width:42px; text-align:right; color:#fff; font-variant-numeric:tabular-nums; }
+.slider { flex:1; min-width:0; position:relative; height:44px; display:flex; align-items:center; cursor:ew-resize; touch-action:none; user-select:none; background:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
+.slider-track { position:relative; width:100%; height:8px; overflow:hidden; border-radius:999px; background:#ffffff30; }
+.slider-fill { position:absolute; inset:0 auto 0 0; width:50%; border-radius:inherit; background:var(--accent,#4facfe); }
+.slider-thumb {
+    position:absolute; left:50%; top:50%;
+    width:var(--slider-thumb-width,34px); height:var(--slider-thumb-height,20px);
+    border-radius:999px; transform:translate(-50%,-50%);
+    pointer-events:none; z-index:2;
+    border:0; background:#fff; box-shadow:none;
+    backdrop-filter:none; -webkit-backdrop-filter:none;
+}
+.slider.active .slider-thumb.glass-active {
+    /* Change layout size, not transform scale: SVG map pixels must match
+       the local filter coordinates while the thumb is enlarged. */
+    width:calc(var(--slider-thumb-width,34px) * var(--thumb-scale,1.3));
+    height:calc(var(--slider-thumb-height,20px) * var(--thumb-scale,1.3));
+    background:rgba(255,255,255,.06);
+    outline:1px solid rgba(255,255,255,.45);
+    backdrop-filter:var(--lg-filter,none) saturate(150%);
+    -webkit-backdrop-filter:var(--lg-filter,none) saturate(150%);
+}
+.slider:focus-visible { outline:2px solid var(--accent,#70bcff); outline-offset:5px; border-radius:999px; }
+.floating-panel .slider-row { padding:4px 6px; border:0; background:none; }
+.floating-panel .slider { height:38px; }
+.floating-panel .slider { --slider-thumb-width:28px; --slider-thumb-height:18px; }
+@media (prefers-reduced-motion:reduce) { .slider-thumb { transition:none; } }
+
+/* Small buttons use the dedicated low-blur renderer, not the large-panel chain. */
+:is(.btn,.icon-btn,.avatar,.switch,.select,.seg-item,.menu-item).small-glass-active {
+    background:rgba(255,255,255,.08);
+    backdrop-filter:var(--lg-filter,none) blur(.5px) saturate(150%);
+    -webkit-backdrop-filter:var(--lg-filter,none) blur(.5px) saturate(150%);
+}
+
+/* Keep all controls reachable after adding the independent controls. */
+.floating-panel { max-height:calc(100dvh - 40px); display:flex; flex-direction:column; }
+.panel-header { flex-shrink:0; }
+.panel-body { min-height:0; overflow-y:auto; }
+
+/* The segmented pill is also a small slider, not a large glass panel. */
+.segmented .seg-indicator {
+    background:#fff; border:0; box-shadow:none;
+    z-index:2;
+    backdrop-filter:none; -webkit-backdrop-filter:none;
+    transition:none;
+}
+.segmented .seg-item { z-index:1; }
+.segmented .seg-item.active { z-index:3; }
+.segmented .seg-indicator.jelly.small-glass-active {
+    background:rgba(255,255,255,.06);
+    outline:1px solid rgba(255,255,255,.45);
+    box-shadow:none;
+    backdrop-filter:var(--lg-filter,none) saturate(150%);
+    -webkit-backdrop-filter:var(--lg-filter,none) saturate(150%);
+}
+
+/* The source keeps layout/interaction geometry; the body-level lens samples
+   the complete painted scene instead of an ancestor's isolated backdrop. */
+.small-glass-source { opacity:0; }
+.small-glass-lens {
+    position:fixed;
+    z-index:10000;
+    pointer-events:none;
+    box-sizing:border-box;
+    background:rgba(255,255,255,.04);
+    outline:1px solid rgba(255,255,255,.45);
+    backdrop-filter:var(--lg-filter,none) saturate(150%);
+    -webkit-backdrop-filter:var(--lg-filter,none) saturate(150%);
+}
+
+/* A real switch thumb can use the same page-level lens as the sliders. */
+.switch::after { display:none; }
+.switch .switch-thumb {
+    position:absolute; left:3px; top:2px; width:28px; height:20px;
+    border-radius:999px; background:#fff; pointer-events:none;
+    transform:translateX(0);
+    transition:transform 360ms cubic-bezier(.22,1.25,.4,1);
+}
+.switch.active .switch-thumb { transform:translateX(22px); }
+.switch:focus-visible,.btn:focus-visible { outline:2px solid var(--accent,#4facfe); outline-offset:4px; }
+@media (prefers-reduced-motion:reduce) { .switch .switch-thumb { transition:none; } }

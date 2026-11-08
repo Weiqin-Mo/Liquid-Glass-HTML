@@ -1,0 +1,20 @@
+.panel-header { touch-action:none; }
+.panel-toggle { margin-left:auto; width:28px; height:28px; border:0; border-radius:50%; color:#fff; background:#ffffff18; cursor:pointer; font:20px system-ui; }
+.panel-toggle:focus-visible,.panel-orb:focus-visible { outline:2px solid var(--accent,#4facfe); outline-offset:-4px; }
+.floating-panel .panel-orb { display:none; }
+.floating-panel[data-collapsed="true"] { min-width:0; max-height:none; overflow:visible; }
+.floating-panel[data-collapsed="true"] > .panel-header,
+.floating-panel[data-collapsed="true"] > .panel-body { visibility:hidden; pointer-events:none; }
+.floating-panel[data-collapsed="true"] > .panel-orb {
+    position:absolute; inset:0; display:grid; place-items:center; width:100%; height:100%;
+    border:0; padding:0; border-radius:inherit; background:transparent; color:#fff;
+    cursor:grab; touch-action:none;
+}
+.panel-orb svg { width:24px; height:24px; stroke:currentColor; fill:none; stroke-width:1.8; }
+.floating-panel[data-morphing] { will-change:width,height,left,top,border-radius,transform; }
+.floating-panel[data-morphing][data-collapsed="false"] > .panel-header,
+.floating-panel[data-morphing][data-collapsed="false"] > .panel-body { animation:panel-content-in 560ms both; }
+.floating-panel[data-morphing][data-collapsed="true"] > .panel-orb svg { animation:panel-orb-in 480ms both; }
+@keyframes panel-content-in { 0%,45% { opacity:0; transform:translateY(6px); } 100% { opacity:1; transform:translateY(0); } }
+@keyframes panel-orb-in { 0%,35% { opacity:0; transform:scale(.6); } 100% { opacity:1; transform:scale(1); } }
+@media (prefers-reduced-motion:reduce) { .floating-panel[data-morphing] { will-change:auto; } }

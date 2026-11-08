@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Segmented Control</title>
+<style>
+  * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px system-ui; background: linear-gradient(135deg, #152346, #46285d); }
+  .segmented { position:relative; padding: 6px; display: flex; gap: 6px; border-radius: 999px; background: rgb(255 255 255 / 12%); backdrop-filter: blur(16px); touch-action:none; }
+  .seg-indicator { position:absolute; top:6px; bottom:6px; border-radius:999px; pointer-events:none; }
+  button { position:relative; border: 0; padding: 10px 18px; border-radius: 999px; color: white; background: transparent; cursor: pointer; }
+  button[aria-pressed="true"] { color: #16233f; }
+</style>
+<link rel="stylesheet" href="../liquid-glass-slider.css">
+<body>
+  <div class="segmented" role="group" aria-label="时间范围"><div class="seg-indicator"></div><button class="seg-item active">日</button><button class="seg-item">周</button><button class="seg-item">月</button><button class="seg-item">年</button></div>
+  <script src="../small-liquid-glass-engine.js"></script>
+  <script src="../segmented-control.js"></script>
+  <script>
+    SegmentedControl.init(document.querySelector('.segmented'));
+  </script>
+</body>
+</html>
