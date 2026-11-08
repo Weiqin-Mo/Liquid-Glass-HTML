@@ -1,5 +1,7 @@
 # Liquid Glass UI Web
 
+简体中文 | [English](./README.en.md)
+
 一个使用原生 HTML、CSS 和 JavaScript 实现的液态玻璃交互实验。通过 Canvas 位移贴图、SVG 滤镜与 `backdrop-filter` 模拟背景折射，同时提供分段选择器、按钮、开关、滑块和可收起的控制面板。
 
 无需安装前端依赖，无需构建。当前版本已将原来的重复实现拆成共享脚本，并为大面板与小控件分别提供折射引擎。
